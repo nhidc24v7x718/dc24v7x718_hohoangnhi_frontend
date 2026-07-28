@@ -5,12 +5,18 @@ export default {
   components: {
     AppHeader,
   },
+
+  computed: {
+    showHeader() {
+      return this.$route.name !== "login";
+    },
+  },
 };
 </script>
 
 <template>
   <div id="app">
-    <AppHeader />
+    <AppHeader v-if="showHeader" />
 
     <div class="container mt-3">
       <router-view />
