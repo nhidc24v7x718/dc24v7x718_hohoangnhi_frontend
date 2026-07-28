@@ -5,34 +5,86 @@
       <InputSearch v-model="searchText" />
     </div>
 
+    <!-- Hai chức năng mở rộng -->
+    <div class="mt-3 col-md-12">
+      <div class="d-flex flex-wrap align-items-center">
+        <!-- Chức năng 1: lọc liên hệ yêu thích -->
+        <button
+          type="button"
+          class="btn btn-sm mr-2 mb-2"
+          :class="showFavoritesOnly ? 'btn-warning' : 'btn-outline-warning'"
+          @click="toggleFavorites"
+        >
+          <i :class="showFavoritesOnly ? 'fas fa-star' : 'far fa-star'"></i>
+
+          {{ showFavoritesOnly ? "Đang lọc yêu thích" : "Chỉ yêu thích" }}
+        </button>
+
+        <!-- Chức năng 2: sắp xếp tên -->
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-info mr-2 mb-2"
+          @click="toggleSortOrder"
+        >
+          <i
+            :class="
+              sortOrder === 'asc'
+                ? 'fas fa-sort-alpha-down'
+                : 'fas fa-sort-alpha-up'
+            "
+          ></i>
+
+          {{ sortOrder === "asc" ? "Sắp xếp A → Z" : "Sắp xếp Z → A" }}
+        </button>
+
+        <!-- Thống kê số lượng đang hiển thị -->
+        <span class="text-muted mb-2">
+          Đang hiển thị
+          {{ displayedContactsCount }}/{{ contacts.length }}
+          liên hệ
+        </span>
+      </div>
+    </div>
+
     <!-- Danh sách liên hệ -->
-    <div class="mt-3 col-md-6">
+    <div class="mt-2 col-md-6">
       <h4>
         Danh bạ
         <i class="fas fa-address-book"></i>
       </h4>
 
       <ContactList
-        v-if="filteredContactsCount > 0"
-        :contacts="filteredContacts"
+        v-if="displayedContactsCount > 0"
+        :contacts="displayedContacts"
         v-model:activeIndex="activeIndex"
       />
 
-      <p v-else>Không có liên hệ nào.</p>
+      <p v-else>Không có liên hệ nào phù hợp.</p>
 
-      <!-- Các nút chức năng -->
       <div class="mt-3 row justify-content-around align-items-center">
-        <button class="btn btn-sm btn-primary" @click="refreshList">
+        <button
+          type="button"
+          class="btn btn-sm btn-primary"
+          @click="refreshList"
+        >
           <i class="fas fa-redo"></i>
           Làm mới
         </button>
 
-        <button class="btn btn-sm btn-success" @click="goToAddContact">
+        <button
+          type="button"
+          class="btn btn-sm btn-success"
+          @click="goToAddContact"
+        >
           <i class="fas fa-plus"></i>
           Thêm mới
         </button>
 
-        <button class="btn btn-sm btn-danger" @click="removeAllContacts">
+        <button
+          type="button"
+          class="btn btn-sm btn-danger"
+          @click="removeAllContacts"
+        >
           <i class="fas fa-trash"></i>
           Xóa tất cả
         </button>
@@ -40,7 +92,7 @@
     </div>
 
     <!-- Chi tiết liên hệ -->
-    <div class="mt-3 col-md-6">
+    <div class="mt-2 col-md-6">
       <div v-if="activeContact">
         <h4>
           Chi tiết Liên hệ
@@ -49,7 +101,6 @@
 
         <ContactCard :contact="activeContact" />
 
-        <!-- Liên kết đến trang cập nhật -->
         <router-link
           :to="{
             name: 'contact.edit',
@@ -86,60 +137,97 @@ export default {
       contacts: [],
       activeIndex: -1,
       searchText: "",
+
+      // Chức năng mở rộng 1
+      showFavoritesOnly: false,
+
+      // Chức năng mở rộng 2
+      // asc: A đến Z
+      // desc: Z đến A
+      sortOrder: "asc",
     };
   },
 
   watch: {
-    // Khi nội dung tìm kiếm thay đổi,
-    // bỏ chọn liên hệ đang được chọn.
     searchText() {
+      this.activeIndex = -1;
+    },
+
+    showFavoritesOnly() {
+      this.activeIndex = -1;
+    },
+
+    sortOrder() {
       this.activeIndex = -1;
     },
   },
 
   computed: {
-    // Chuyển thông tin mỗi contact thành chuỗi để tìm kiếm.
-    contactStrings() {
-      return this.contacts.map((contact) => {
-        const { name, email, address, phone } = contact;
+    /**
+     * Danh sách cuối cùng sau khi:
+     * 1. Tìm kiếm
+     * 2. Lọc yêu thích
+     * 3. Sắp xếp theo tên
+     */
+    displayedContacts() {
+      let result = [...this.contacts];
 
-        return [name, email, address, phone]
-          .filter(Boolean)
-          .join("")
-          .toLowerCase();
-      });
-    },
+      const keyword = this.searchText.trim().toLowerCase();
 
-    // Lọc danh sách theo tên, email, địa chỉ hoặc số điện thoại.
-    filteredContacts() {
-      const searchText = this.searchText.trim().toLowerCase();
+      // Tìm kiếm theo tên, email, địa chỉ và điện thoại
+      if (keyword) {
+        result = result.filter((contact) => {
+          const contactString = [
+            contact.name,
+            contact.email,
+            contact.address,
+            contact.phone,
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
 
-      if (!searchText) {
-        return this.contacts;
+          return contactString.includes(keyword);
+        });
       }
 
-      return this.contacts.filter((_contact, index) =>
-        this.contactStrings[index].includes(searchText),
-      );
+      // Chức năng 1: chỉ giữ lại liên hệ yêu thích
+      if (this.showFavoritesOnly) {
+        result = result.filter((contact) => contact.favorite === true);
+      }
+
+      // Chức năng 2: sắp xếp theo tên
+      result.sort((contactA, contactB) => {
+        const nameA = contactA.name || "";
+        const nameB = contactB.name || "";
+
+        const comparison = nameA.localeCompare(nameB, "vi", {
+          sensitivity: "base",
+        });
+
+        return this.sortOrder === "asc" ? comparison : -comparison;
+      });
+
+      return result;
     },
 
-    // Contact đang được chọn.
     activeContact() {
-      if (this.activeIndex < 0) {
+      if (
+        this.activeIndex < 0 ||
+        this.activeIndex >= this.displayedContacts.length
+      ) {
         return null;
       }
 
-      return this.filteredContacts[this.activeIndex];
+      return this.displayedContacts[this.activeIndex];
     },
 
-    // Số contact sau khi lọc.
-    filteredContactsCount() {
-      return this.filteredContacts.length;
+    displayedContactsCount() {
+      return this.displayedContacts.length;
     },
   },
 
   methods: {
-    // Lấy toàn bộ contact từ backend.
     async retrieveContacts() {
       try {
         this.contacts = await ContactService.getAll();
@@ -148,13 +236,27 @@ export default {
       }
     },
 
-    // Làm mới danh sách.
     refreshList() {
       this.retrieveContacts();
       this.activeIndex = -1;
     },
 
-    // Xóa toàn bộ contact.
+    /**
+     * Chức năng mở rộng 1:
+     * Bật hoặc tắt bộ lọc yêu thích.
+     */
+    toggleFavorites() {
+      this.showFavoritesOnly = !this.showFavoritesOnly;
+    },
+
+    /**
+     * Chức năng mở rộng 2:
+     * Chuyển đổi giữa A-Z và Z-A.
+     */
+    toggleSortOrder() {
+      this.sortOrder = this.sortOrder === "asc" ? "desc" : "asc";
+    },
+
     async removeAllContacts() {
       const reply = window.confirm("Bạn muốn xóa tất cả Liên hệ?");
 
@@ -170,7 +272,6 @@ export default {
       }
     },
 
-    // Chuyển đến trang thêm contact.
     goToAddContact() {
       this.$router.push({
         name: "contact.add",
@@ -178,7 +279,6 @@ export default {
     },
   },
 
-  // Khi trang được hiển thị, lấy danh sách từ backend.
   mounted() {
     this.refreshList();
   },
@@ -188,6 +288,6 @@ export default {
 <style scoped>
 .page {
   text-align: left;
-  max-width: 750px;
+  max-width: 800px;
 }
 </style>
